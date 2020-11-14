@@ -27,13 +27,13 @@ struct ArmorParam
 	ArmorParam()
 	{
 		Image_bright = -100;
-		Armor_color = 1; //0 for blue and 1 for red
-		Light_area_min = 20;
+		Armor_color = 0; //0 for blue and 1 for red
+		Light_area_min = 200;
 		Light_angle = 5;
 		Light_aspect_ratio = 0.7;
 		Light_crown = 0.5;
 		Light_contour_angle = 4.2;
-		Light_contour_len = 0.25;
+		Light_contour_len = 0.5;
 		Armor_angle_min = 5;
 		Armor_ratio_min = 1.0;
 		Armor_ratio_max = 5.0;
@@ -56,12 +56,12 @@ cv::Mat Adjust_Dilate(cv::Mat);
 cv::Mat Adjust_img(cv::Mat); //for integrating all image adjustments
 //detection
 cv::Mat detect(cv::Mat);
-cv::RotatedRect &adjustRec(cv::RotatedRect &);
-cv::Mat drawArmor(cv::RotatedRect);
+cv::RotatedRect& adjustRec(cv::RotatedRect&);
+cv::Mat drawArmor(cv::RotatedRect, int);
 
 int main()
 {
-	frame = cv::imread("./target.png");
+	frame = cv::imread("./target2.jpg");
 	if (frame.empty())
 	{
 		cout << "Error! Image not loaded.\n";
@@ -81,36 +81,6 @@ int main()
 	//while (capture.read(frame))
 	{
 		//frame adjustment
-		/*cv::Mat frame_bright = Adjust_Brightness(frame);
-		//test
-		cv::namedWindow("test_bright", WINDOW_NORMAL);
-		cv::imshow("test_bright", frame_bright);
-		cv::waitKey();
-		//test
-		cv::Mat frame_gray = Adjust_Grayscale(frame_bright);
-		//test
-		cv::namedWindow("test_gray", WINDOW_NORMAL);
-		cv::imshow("test_gray", frame_gray);
-		cv::waitKey();
-		//test
-		cv::Mat frame_avg = Adjust_AvgFilter(frame_gray);
-		//test
-		cv::namedWindow("test_avg", WINDOW_NORMAL);
-		cv::imshow("test_avg", frame_avg);
-		cv::waitKey();
-		//test
-		cv::Mat frame_bin = Adjust_Binary(frame_avg);
-		//test
-		cv::namedWindow("test_bin", WINDOW_NORMAL);
-		cv::imshow("test_bin", frame_bin);
-		cv::waitKey();
-		//test
-		cv::Mat frame_dilate = Adjust_Dilate(frame_bin);
-		//test
-		cv::namedWindow("test_dilate", WINDOW_NORMAL);
-		cv::imshow("test_dilate", frame_dilate);
-		cv::waitKey();
-		//test*/
 		cv::Mat img_adjusted = Adjust_img(frame);
 
 		//detection
@@ -160,51 +130,34 @@ cv::Mat Adjust_AvgFilter(cv::Mat srcImg)
 cv::Mat Adjust_Binary(cv::Mat srcImg)
 {
 	cv::Mat dstImg;
-	threshold(srcImg, dstImg, 100, 200, THRESH_BINARY);
+	if (!_Armor.Armor_color)threshold(srcImg, dstImg, 130, 255, THRESH_BINARY);
+	else threshold(srcImg, dstImg, 230, 255, THRESH_BINARY);
 	return dstImg;
 }
 
 cv::Mat Adjust_Dilate(cv::Mat srcImg)
 {
 	cv::Mat dstImg;
-	cv::Mat kernel = cv::getStructuringElement(MORPH_ELLIPSE, cv::Size(3, 3), cv::Point(-1, -1));
-	cv::dilate(srcImg, dstImg, kernel);
+	//cv::Mat kernel = cv::getStructuringElement(MORPH_ELLIPSE, cv::Size(3, 3), cv::Point(-1, -1));
+	int structElementSize = 2;
+	Mat element = getStructuringElement(MORPH_RECT, Size(2 * structElementSize + 1, 2 * structElementSize + 1), Point(structElementSize, structElementSize));
+	cv::dilate(srcImg, dstImg, element);
 	return dstImg;
 }
 
 cv::Mat Adjust_img(cv::Mat srcImg) //for integrating all image adjustments
 {
 	cv::Mat frame_bright = Adjust_Brightness(srcImg);
-	/*//test
-		cv::namedWindow("test_bright", WINDOW_NORMAL);
-		cv::imshow("test_bright", frame_bright);
-		cv::waitKey();
-		//test*/
 	cv::Mat frame_gray = Adjust_Grayscale(frame_bright);
-	/*//test
-		cv::namedWindow("test_gray", WINDOW_NORMAL);
-		cv::imshow("test_gray", frame_gray);
-		cv::waitKey();
-		//test*/
-	cv::Mat frame_avg = Adjust_AvgFilter(frame_gray);
-	/*//test
-		cv::namedWindow("test_avg", WINDOW_NORMAL);
-		cv::imshow("test_avg", frame_avg);
-		cv::waitKey();
-		//test*/
-	cv::Mat frame_bin = Adjust_Binary(frame_avg);
-	/*//test
-		cv::namedWindow("test_bin", WINDOW_NORMAL);
-		cv::imshow("test_bin", frame_bin);
-		cv::waitKey();
-		//test*/
+	//cv::Mat frame_avg = Adjust_AvgFilter(frame_gray);
+	cv::Mat frame_bin = Adjust_Binary(frame_gray);
 	cv::Mat frame_dilate = Adjust_Dilate(frame_bin);
-	/*//test
-		cv::namedWindow("test_dilate", WINDOW_NORMAL);
-		cv::imshow("test_dilate", frame_dilate);
-		cv::waitKey();
-		//test*/
-	return frame_dilate;
+
+	cv::Mat dstImg = frame_dilate;
+	cv::namedWindow("test_processed", WINDOW_NORMAL);
+	cv::imshow("test_processed", dstImg);
+	cv::waitKey();
+	return dstImg;
 }
 
 cv::Mat detect(cv::Mat srcImg)
@@ -236,7 +189,7 @@ cv::Mat detect(cv::Mat srcImg)
 		Light_Rec.size.height *= 1.1;
 		Light_Rec.size.width *= 1.1;
 		vContour.push_back(Light_Rec);
-		//drawArmor(Light_Rec);
+		drawArmor(Light_Rec, 1);
 	}
 
 	vector<cv::RotatedRect> vRec; //for storing the screened armors
@@ -287,20 +240,20 @@ cv::Mat detect(cv::Mat srcImg)
 	else
 	{
 		for (int i = 0; i < vRec.size(); i++)
-			dstImg = drawArmor(vRec[i]);
+			dstImg = drawArmor(vRec[i], 0);
 		cout << "Armor Detected!\n";
 	}
 
 	return dstImg;
 }
 
-cv::RotatedRect &adjustRec(cv::RotatedRect &rec)
+cv::RotatedRect& adjustRec(cv::RotatedRect& rec)
 {
 	using std::swap;
 
-	float &width = rec.size.width;
-	float &height = rec.size.height;
-	float &angle = rec.angle;
+	float& width = rec.size.width;
+	float& height = rec.size.height;
+	float& angle = rec.angle;
 
 	while (angle >= 90.0)
 		angle -= 180.0;
@@ -321,14 +274,24 @@ cv::RotatedRect &adjustRec(cv::RotatedRect &rec)
 	return rec;
 }
 
-cv::Mat drawArmor(cv::RotatedRect rec)
+cv::Mat drawArmor(cv::RotatedRect rec, int color)
 {
 	cv::Mat dstImg = frame;
 	cv::Point2f p[4];
 	rec.points(p);
-	line(dstImg, p[0], p[1], Scalar(0, 255, 255), 3, LINE_AA, 0);
-	line(dstImg, p[1], p[2], Scalar(0, 255, 255), 3, LINE_AA, 0);
-	line(dstImg, p[2], p[3], Scalar(0, 255, 255), 3, LINE_AA, 0);
-	line(dstImg, p[3], p[0], Scalar(0, 255, 255), 3, LINE_AA, 0);
+	if (!color)
+	{
+		line(dstImg, p[0], p[1], Scalar(0, 255, 255), 3, LINE_AA, 0);
+		line(dstImg, p[1], p[2], Scalar(0, 255, 255), 3, LINE_AA, 0);
+		line(dstImg, p[2], p[3], Scalar(0, 255, 255), 3, LINE_AA, 0);
+		line(dstImg, p[3], p[0], Scalar(0, 255, 255), 3, LINE_AA, 0);
+	}
+	else
+	{
+		line(dstImg, p[0], p[1], Scalar(255, 255, 0), 3, LINE_AA, 0);
+		line(dstImg, p[1], p[2], Scalar(255, 255, 0), 3, LINE_AA, 0);
+		line(dstImg, p[2], p[3], Scalar(255, 255, 0), 3, LINE_AA, 0);
+		line(dstImg, p[3], p[0], Scalar(255, 255, 0), 3, LINE_AA, 0);
+	}
 	return dstImg;
 }
